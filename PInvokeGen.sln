@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{482A36AF-1AC3-4AAD-A876-AA393AEC1379}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "libpinvokegen", "src\libpinvokegen\libpinvokegen.csproj", "{AF48A3F6-8B7E-4C89-BB28-9A880856517C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "pinvokegen", "src\pinvokegen\pinvokegen.csproj", "{4CCF9BCB-34F9-42AF-99ED-85ED6C20EAF1}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{AF48A3F6-8B7E-4C89-BB28-9A880856517C} = {482A36AF-1AC3-4AAD-A876-AA393AEC1379}
+		{4CCF9BCB-34F9-42AF-99ED-85ED6C20EAF1} = {482A36AF-1AC3-4AAD-A876-AA393AEC1379}
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AF48A3F6-8B7E-4C89-BB28-9A880856517C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AF48A3F6-8B7E-4C89-BB28-9A880856517C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AF48A3F6-8B7E-4C89-BB28-9A880856517C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AF48A3F6-8B7E-4C89-BB28-9A880856517C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4CCF9BCB-34F9-42AF-99ED-85ED6C20EAF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4CCF9BCB-34F9-42AF-99ED-85ED6C20EAF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4CCF9BCB-34F9-42AF-99ED-85ED6C20EAF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4CCF9BCB-34F9-42AF-99ED-85ED6C20EAF1}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
