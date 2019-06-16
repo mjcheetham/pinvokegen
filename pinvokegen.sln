@@ -6,6 +6,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "libpinvokegen", "src\libpin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "pinvokegen", "src\pinvokegen\pinvokegen.csproj", "{D1F9CA49-E375-42E7-AEBB-4B7951A2AA33}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{C89947D5-7CBB-46AA-976E-EB2554B0CDDF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "libpinvokegen.Tests", "test\libpinvokegen.Tests\libpinvokegen.Tests.csproj", "{478EFEEB-A41A-4C63-A96C-4ECC93375ABE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -14,6 +18,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{2091B0C0-F2AC-41FA-9EAE-6CAB493D8F23} = {C7E73B6A-AB9B-4715-B021-A729D1682EB8}
 		{D1F9CA49-E375-42E7-AEBB-4B7951A2AA33} = {C7E73B6A-AB9B-4715-B021-A729D1682EB8}
+		{478EFEEB-A41A-4C63-A96C-4ECC93375ABE} = {C89947D5-7CBB-46AA-976E-EB2554B0CDDF}
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{2091B0C0-F2AC-41FA-9EAE-6CAB493D8F23}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -24,5 +29,9 @@ Global
 		{D1F9CA49-E375-42E7-AEBB-4B7951A2AA33}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D1F9CA49-E375-42E7-AEBB-4B7951A2AA33}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D1F9CA49-E375-42E7-AEBB-4B7951A2AA33}.Release|Any CPU.Build.0 = Release|Any CPU
+		{478EFEEB-A41A-4C63-A96C-4ECC93375ABE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{478EFEEB-A41A-4C63-A96C-4ECC93375ABE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{478EFEEB-A41A-4C63-A96C-4ECC93375ABE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{478EFEEB-A41A-4C63-A96C-4ECC93375ABE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
