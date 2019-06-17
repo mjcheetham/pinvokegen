@@ -40,25 +40,15 @@ printf(""max fib(n) < %i = %i\n"", lim, x2);
         public void Lex2()
         {
             const string source = @"
-char c2 = 'A';
-char c1 = '\0';
-char c1 = '\""';
-char c1 = '\a';
-char c1 = '\A';
-char c2 = 'A';
-char c2 = '\212';
-char c2 = '\12';
-char c2 = '\777';
-char c2 = '\790';
-char c2 = '\01';
-char c2 = '\xFF';
-char c2 = '\xDEADBEEF';
-char c2 = '\xABCDZYXW';";
+'\x41'
+'\xDEADBEEF'
+'\xABCDZYXW'
+";
 
-            string s = RunLex(source);
+            string s = RunLex(source, ignoreWhitespace: true);
         }
 
-        private static string RunLex(string source)
+        private static string RunLex(string source, bool ignoreWhitespace = false)
         {
             var lexer = new Lexer(source);
             var tokens = new List<SyntaxToken>();
@@ -67,7 +57,14 @@ char c2 = '\xABCDZYXW';";
             do
             {
                 token = lexer.Lex();
+
+                if (ignoreWhitespace && token.Kind == SyntaxKind.WhitespaceToken)
+                {
+                    continue;
+                }
+
                 tokens.Add(token);
+
             } while (token.Kind != SyntaxKind.EndOfFile);
 
             return CreateTokenSummary(tokens);

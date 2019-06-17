@@ -1,16 +1,36 @@
 using System;
-using System.Linq;
+using System.Collections.Generic;
 using System.Text;
 
 namespace PinvokeGen.Native.Syntax
 {
     public class Lexer
     {
-        private const char NUL = '\0';
-        private const char CR  = '\r';
-        private const char LF  = '\n';
-        private const char TAB = '\t';
-        private const char SP  = ' ';
+        private const char NULL   = '\0';
+        private const char BSLASH = '\\';
+        private const char DQT    = '\"';
+        private const char LF     = '\n';
+        private const char CR     = '\r';
+        private const char BSPACE = '\b';
+        private const char HTAB   = '\t';
+        private const char FEED   = '\f';
+        private const char BELL   = '\a';
+        private const char VTAB   = '\v';
+        private const char SPACE  = ' ';
+
+        private static readonly IReadOnlyDictionary<string, char> SimpleEscapeCharMap = new Dictionary<string, char>
+        {
+            [@"\0"]  = NULL,
+            [@"\\"]  = BSLASH,
+            [@"\"""] = DQT,
+            [@"\n"]  = LF,
+            [@"\r"]  = CR,
+            [@"\b"]  = BSPACE,
+            [@"\t"]  = HTAB,
+            [@"\f"]  = FEED,
+            [@"\a"]  = BELL,
+            [@"\v"]  = VTAB,
+        };
 
         private readonly string _text;
 
@@ -20,6 +40,8 @@ namespace PinvokeGen.Native.Syntax
         {
             _text = text;
         }
+
+        public ICollection<Diagnostic> Diagnostics { get; } = new List<Diagnostic>();
 
         private int CurrentPosition => _position;
 
@@ -32,11 +54,22 @@ namespace PinvokeGen.Native.Syntax
             return _text[_position++];
         }
 
-        private char[] Consume(int count)
+        private string Consume(int count)
         {
-            var ret = _text.Substring(_position, count).ToCharArray();
+            var ret = _text.Substring(_position, count);
             _position += count;
             return ret;
+        }
+
+        private string ConsumeWhile(Predicate<char> predicate, int maxCount = int.MaxValue)
+        {
+            var arr = new char[maxCount];
+            int i;
+            for (i = 0; i < maxCount && predicate(CurrentCharacter); i++)
+            {
+                arr[i] = Consume();
+            }
+            return new string(arr, 0, i);
         }
 
         private char Peek(int offset)
@@ -45,7 +78,7 @@ namespace PinvokeGen.Native.Syntax
 
             if (index >= _text.Length)
             {
-                return NUL;
+                return NULL;
             }
 
             return _text[index];
@@ -59,7 +92,7 @@ namespace PinvokeGen.Native.Syntax
 
             switch (CurrentCharacter)
             {
-                case NUL:
+                case NULL:
                     kind = SyntaxKind.EndOfFile;
                     break;
 
@@ -92,7 +125,6 @@ namespace PinvokeGen.Native.Syntax
                     kind = SyntaxKind.MinusToken;
                     Consume();
                     break;
-
 
                 case '*' when NextCharacter == '=':
                     kind = SyntaxKind.AsteriskEqualToken;
@@ -259,8 +291,8 @@ namespace PinvokeGen.Native.Syntax
                     ReadHexLiteral(out kind, out value);
                     break;
 
-                case SP: case TAB:
-                case LF: case CR:
+                case SPACE: case HTAB:
+                case LF:    case CR:
                     ReadWhiteSpace(out kind);
                     break;
 
@@ -279,8 +311,8 @@ namespace PinvokeGen.Native.Syntax
                     }
                     else
                     {
-                        // TODO: report bad token error
-                        Consume();
+                        char invalidChar = Consume();
+                        Diagnostics.Add(new Diagnostic(CurrentPosition, "Unknown token", invalidChar.ToString()));
                     }
                     break;
             }
@@ -292,8 +324,7 @@ namespace PinvokeGen.Native.Syntax
 
         private void ReadCharacterLiteral(out SyntaxKind kind, out object value)
         {
-            char[] simpleEscapeCharacters = {'0', '\\', '"', '\'', 'n', 'r', 'b', 't', 'f', 'a', 'v', '?'};
-            var charLiteralValue = new StringBuilder();
+            value = null;
 
             if (CurrentCharacter != '\'')
             {
@@ -305,57 +336,84 @@ namespace PinvokeGen.Native.Syntax
 
             if (CurrentCharacter == '\'') // Empty character literal (invalid)
             {
-                // TODO: error empty character literal is invalid
+                Diagnostics.Add(new Diagnostic(CurrentPosition, "Empty character literal is invalid", "\'\'"));
+                kind = SyntaxKind.InvalidToken;
+                return;
             }
-            else if (CurrentCharacter == '\\') // Escape character
+
+            if (CurrentCharacter == '\\') // Escape character
             {
-                charLiteralValue.Append(CurrentCharacter);
                 Consume();
 
-                if (CurrentCharacter == 'x') // Hex sequence
+                if (SimpleEscapeCharMap.TryGetValue($@"\{CurrentCharacter}", out char escapeChar) && NextCharacter == '\'')
+                {
+                    Consume();
+                    value = escapeChar;
+                }
+                else if (CurrentCharacter == 'x') // Hex sequence
                 {
                     Consume();
 
                     // Consume up-to 8 hex digits
-                    for (int i = 0; i < 8 && CurrentCharacter.IsHexDigit(); i++)
+                    string hexChars = ConsumeWhile(CharacterExtensions.IsHexDigit, maxCount: 8);
+
+                    if (TryCreateCharacter(hexChars, 16, out char c))
                     {
-                        charLiteralValue.Append(Consume());
+                        value = c;
+                    }
+                    else
+                    {
+                        Diagnostics.Add(new Diagnostic(CurrentPosition, "Invalid hex escape character", hexChars));
+                        kind = SyntaxKind.InvalidToken;
+                        return;
                     }
                 }
                 else if (CurrentCharacter.IsOctalDigit()) // Octal sequence
                 {
-                    // Consume exactly 3 octal digits
-                    for (int i = 0; i < 3; i++)
+                    // Consume 3 octal digits
+                    string octalChars = ConsumeWhile(CharacterExtensions.IsOctalDigit, maxCount: 3);
+
+                    if (octalChars.Length != 3)
                     {
-                        if (!CurrentCharacter.IsOctalDigit())
-                        {
-                            // TODO: invalid octal sequence
-                            break;
-                        }
-                        charLiteralValue.Append(Consume());
+                        Diagnostics.Add(new Diagnostic(CurrentPosition, "Octal escape character must consist of 3 digits", octalChars));
+                        kind = SyntaxKind.InvalidToken;
+                        return;
+                    }
+
+                    if (TryCreateCharacter(octalChars, 8, out char c))
+                    {
+                        value = c;
+                    }
+                    else
+                    {
+                        Diagnostics.Add(new Diagnostic(CurrentPosition, "Invalid oct escape character", octalChars));
+                        kind = SyntaxKind.InvalidToken;
+                        return;
                     }
                 }
-                else if (simpleEscapeCharacters.Contains(CurrentCharacter))
+                else
                 {
-                    charLiteralValue.Append(Consume());
+                    char c = Consume();
+                    Diagnostics.Add(new Diagnostic(CurrentPosition, "Unknown escape character", $"\\{c}"));
+                    kind = SyntaxKind.InvalidToken;
+                    return;
                 }
             }
             else // Normal character
             {
-                charLiteralValue.Append(Consume());
+                value = Consume();
             }
 
-            if (CurrentCharacter == '\'') // Closing quote
+            char lastChar = Consume();
+            if (lastChar == '\'') // Closing quote
             {
-                Consume();
+                kind = SyntaxKind.CharacterLiteral;
             }
             else
             {
-                // TODO: error unterminated character literal
+                Diagnostics.Add(new Diagnostic(CurrentPosition, "Expected closing character quote", lastChar.ToString()));
+                kind = SyntaxKind.InvalidToken;
             }
-
-            kind = SyntaxKind.CharacterLiteral;
-            value = char.Parse(charLiteralValue.ToString());
         }
 
         private void ReadString(out SyntaxKind kind, out object value)
@@ -375,10 +433,10 @@ namespace PinvokeGen.Native.Syntax
             {
                 switch (CurrentCharacter)
                 {
-                    case NUL:
+                    case NULL:
                     case CR:
                     case LF:
-                        // TODO: report unterminated string
+                        Diagnostics.Add(new Diagnostic(CurrentPosition, "Unterminated string literal; expected \""));
                         done = true;
                         break;
                     case '"':
@@ -403,18 +461,19 @@ namespace PinvokeGen.Native.Syntax
                 throw new LexerException();
             }
 
-            int start = CurrentPosition;
+            string octalChars = ConsumeWhile(CharacterExtensions.IsOctalDigit);
 
-            while (CurrentCharacter.IsOctalDigit())
+            if (TryConvertInteger(octalChars, 8, out int i))
             {
-                Consume();
+                value = i;
+                kind = SyntaxKind.OctalLiteralToken;
             }
-
-            string text = _text.Substring(start, CurrentPosition - start);
-            int octValue = Convert.ToInt32(text, 8);
-
-            value = octValue;
-            kind = SyntaxKind.OctalLiteralToken;
+            else
+            {
+                Diagnostics.Add(new Diagnostic(CurrentPosition, "Invalid octal literal", octalChars));
+                value = default;
+                kind = SyntaxKind.InvalidToken;
+            }
         }
 
         private void ReadIntegerLiteral(out SyntaxKind kind, out object value)
@@ -424,18 +483,19 @@ namespace PinvokeGen.Native.Syntax
                 throw new LexerException();
             }
 
-            int start = CurrentPosition;
+            string decChars = ConsumeWhile(CharacterExtensions.IsOctalDigit);
 
-            while (CurrentCharacter.IsDecimalDigit())
+            if (TryConvertInteger(decChars, 10, out int i))
             {
-                Consume();
+                value = i;
+                kind = SyntaxKind.IntegerLiteralToken;
             }
-
-            string text = _text.Substring(start, CurrentPosition - start);
-            int decValue = Convert.ToInt32(text, 10);
-
-            value = decValue;
-            kind = SyntaxKind.IntegerLiteralToken;
+            else
+            {
+                Diagnostics.Add(new Diagnostic(CurrentPosition, "Invalid integer literal", decChars));
+                value = default;
+                kind = SyntaxKind.InvalidToken;
+            }
         }
 
         private void ReadHexLiteral(out SyntaxKind kind, out object value)
@@ -445,21 +505,22 @@ namespace PinvokeGen.Native.Syntax
                 throw new LexerException();
             }
 
-            int start = CurrentPosition;
-
             // Skip 0x prefix
             Consume(2);
 
-            while (CurrentCharacter.IsHexDigit())
+            string hexChars = ConsumeWhile(CharacterExtensions.IsHexDigit);
+
+            if (TryConvertInteger(hexChars, 8, out int i))
             {
-                Consume();
+                value = i;
+                kind = SyntaxKind.HexLiteralToken;
             }
-
-            string text = _text.Substring(start, CurrentPosition - start);
-            int hexValue = Convert.ToInt32(text, 16);
-
-            value = hexValue;
-            kind = SyntaxKind.HexLiteralToken;
+            else
+            {
+                Diagnostics.Add(new Diagnostic(CurrentPosition, "Invalid hex literal", hexChars));
+                value = default;
+                kind = SyntaxKind.InvalidToken;
+            }
         }
 
         private void ReadWhiteSpace(out SyntaxKind kind)
@@ -484,14 +545,7 @@ namespace PinvokeGen.Native.Syntax
                 throw new LexerException();
             }
 
-            int start = CurrentPosition;
-
-            while (char.IsLetterOrDigit(CurrentCharacter) || CurrentCharacter == '_')
-            {
-                Consume();
-            }
-
-            string text = _text.Substring(start, CurrentPosition - start);
+            string text = ConsumeWhile(c => char.IsLetterOrDigit(c) || c == '_');
 
             if (Keyword.IsKeyword(text, out Keyword keyword))
             {
@@ -502,6 +556,48 @@ namespace PinvokeGen.Native.Syntax
             {
                 value = text;
                 kind = SyntaxKind.IdentifierToken;
+            }
+        }
+
+        private static bool TryCreateCharacter(string str, int fromBase, out char c)
+        {
+            try
+            {
+                int value = Convert.ToInt32(str, fromBase);
+                return TryCreateCharacter(value, out c);
+            }
+            catch
+            {
+                c = default;
+                return false;
+            }
+        }
+
+        private static bool TryCreateCharacter(int value, out char c)
+        {
+            try
+            {
+                c = char.ConvertFromUtf32(value)[0];
+                return true;
+            }
+            catch
+            {
+                c = default;
+                return false;
+            }
+        }
+
+        private static bool TryConvertInteger(string str, int fromBase, out int value)
+        {
+            try
+            {
+                value = Convert.ToInt32(str, fromBase);
+                return true;
+            }
+            catch
+            {
+                value = default;
+                return false;
             }
         }
     }
